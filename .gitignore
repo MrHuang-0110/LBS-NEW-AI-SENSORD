@@ -1,0 +1,39 @@
+# Keil / MDK-ARM build outputs
+*.o
+*.d
+*.crf
+*.iex
+*.axf
+*.hex
+*.bin
+*.map
+*.lst
+*.lnp
+*.htm
+*.dep
+*.tra
+*.mpf
+*.mpj
+*.omf
+*.obj
+*.rpt
+*.bak
+*.ddk
+*.edk
+*.plg
+*.tmp
+*.__i
+*.sct
+
+# Keil user-specific layout / debug state (per-developer, do not commit)
+*.uvguix.*
+*.uvoptx
+*.scvd
+
+# J-Link / IDE logs
+JLinkLog.txt
+*.ini
+
+# Build output directories
+Project/Objects/
+Project/Listings/
