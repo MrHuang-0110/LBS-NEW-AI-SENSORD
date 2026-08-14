@@ -1,14 +1,13 @@
  
 #include "hk32f030m.h" 
+#include "stdbool.h"
 #include "data_analysis.h"
 #include "usart.h"
 #include "queue.h"
 #include "timer.h"
 #include "senords.h"
-#if (KT_MOTOR||BIG_MOTOR||SMALL_MOTOR)
+#if (BIG_MOTOR||SMALL_MOTOR)
 #include "pwm.h"
-#include "spi.h"
-#include "kt782xx.h"
 #else
 #if (COLOR)
 #include "ltr381xx.h"
@@ -40,23 +39,17 @@ int main(void)
 	Timer_Init();
 	delay_init();
 	
-	#if KT_MOTOR
-	spi_init();
-	KT782XX_Init();
-	setKT782xxCfg();
-	#endif
-
-	#if (KT_MOTOR||BIG_MOTOR||SMALL_MOTOR)
+#if (BIG_MOTOR||SMALL_MOTOR)
 	encorder_init();
 	pwm_init();	 
-	#else
-	#if COLOR
+#else
+#if COLOR
 	Sf_I2C_Init();
  
 	ltr381_rgb_init();
 	ltr381_cfg_init();
-	#endif
-	#endif
+#endif
+#endif
 	init_analysis(Usart_SendArray);
 	
 	USART_Config();

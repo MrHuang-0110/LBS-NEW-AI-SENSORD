@@ -3,11 +3,12 @@
 #include "stdbool.h"
 #include "pwm.h"
 #include "senords.h"
-#include "kt782xx.h"
 #include "systick_delay.h"
 #include "timer.h"
- #include "ltr381xx.h"
+#if (BIG_MOTOR||SMALL_MOTOR||COLOR)
+#include "ltr381xx.h"
 static DEV_SENORDS _dev;
+#endif
 
 
 bool linkState = false;
@@ -39,16 +40,16 @@ void pull_data_from_queue(void)
 							  linkState = false;
 							  delay_ms(5);
 							 
-						    SendCOMdata(USER_SourceID,"Play Aplication",strlen("Play Aplication"),0x09);
-                #if (KT_MOTOR||BIG_MOTOR||SMALL_MOTOR)							 
-						    TIM2->CCR1 = 0;
-			          TIM2->CCR2 = 0; 					
+							    SendCOMdata(USER_SourceID,"Play Aplication",strlen("Play Aplication"),0x09);
+                #if (BIG_MOTOR||SMALL_MOTOR)							 
+							    TIM2->CCR1 = 0;
+				          TIM2->CCR2 = 0; 					
                 #endif							 
-							  linkState = true;
+							    linkState = true;
 						 }						
 					   break;
 					}
-					#if (KT_MOTOR||BIG_MOTOR||SMALL_MOTOR)
+					#if (BIG_MOTOR||SMALL_MOTOR)
 					case 0xED:
 					{ 
 						 TIM2->CCR1 = (data[0] << 8) | data[1];
@@ -80,24 +81,20 @@ void uploading_data(void)
 {
     if (!linkState) return;
     
-	  #if (KT_MOTOR||BIG_MOTOR||SMALL_MOTOR)
-	   
-    motor_packet_t packet;
+		  #if (BIG_MOTOR||SMALL_MOTOR)
+		   
+	    motor_packet_t packet;
     memset(&packet, 0, sizeof(packet));
     
-    // ??????????
     encoder_update_speed(getTickTime());
     
-    // ???????
     int speed = (int)encoder_get_speed();
     int pos = encoder_get_total_position();
     
-    // **??????????????????????????????**
     int angle = 0;
-    int enctord_prr = getEnctordPrr();  // ????PPR?
+    int enctord_prr = getEnctordPrr();
     
     if (enctord_prr > 0) {
-        // ?????????pos????float???????????
         angle = (int)((float)pos / (float)enctord_prr * 360.0f);
     }
 		#else
