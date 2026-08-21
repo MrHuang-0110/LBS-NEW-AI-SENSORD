@@ -128,7 +128,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
  
- // SCB->VTOR = FLASH_BASE |0X3800; /* Vector Table Relocation in Internal SRAM. */	
+ SCB->VTOR = FLASH_BASE |0X3800; /* Vector Table Relocation in Internal SRAM. */	
 	
   /* USER CODE END 1 */
 

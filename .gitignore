@@ -37,3 +37,7 @@ JLinkLog.txt
 # Build output directories
 Project/Objects/
 Project/Listings/
+
+# Keil per-user debug state
+*.dbgconf
+Project/DebugConfig/

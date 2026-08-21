@@ -27,7 +27,7 @@ Unified firmware for small sensor/actuator peripherals talking to a host over UA
 
 ## Build / check / clean
 
-- **Build:** open the product's project file in Keil µVision (e.g. `Project/HK32_BIG_MOTOR.uvprojx` or `Project/STM32_GRAY_V1.uvprojx`), then build (F7). Each file is single-target and carries its own product Define. Compiler per product: HK32×3 + GRAY_V2 use AC6 (`uAC6=1`), GRAY_V1/NFC use AC5 — keep this (AC5 code is ~0x2ac bytes bigger and overflows the HK32 16 KB flash; HK32 must stay AC6).
+- **Build:** open the product's project file in Keil µVision (e.g. `Project/HK32_BIG_MOTOR.uvprojx` or `Project/STM32_GRAY_V1.uvprojx`), then build (F7). Each file is single-target and carries its own product Define. Compiler per product: HK32×3 + GRAY_V2 use AC6 (`uAC6=1`), NFC uses AC5, GRAY_V1 uses AC6 — keep this (AC5 code is ~0x2ac bytes bigger and overflows the HK32 16 KB flash; HK32 must stay AC6; GRAY_V1 also needs AC6 to fit the 18 KB bootloader app region).
 - **Flash:** HK32 via J-Link (`HK32F030MXX_16.FLM`); STM32G030 via ST-Link. Each project's after-build runs fromelf `--bin` → `Project/Objects/<PRODUCT>/<PRODUCT>.bin` (APP image for the bootloader; HK32 app base `0x08002000`, G0 `0x08003800`).
 - **Syntax sanity (no Keil needed):** `python tools/syntax_check.py` — runs after structural edits across all 6 product source sets. `arm_ext.h` stubs ARM-isms so gcc can parse.
 - **Clean intermediates:** `keilkill.bat` from repo root (keeps `*.opt`). Build artifacts under `Project/Objects/`, `Project/Listings/` are gitignored.
@@ -52,8 +52,8 @@ Unified firmware for small sensor/actuator peripherals talking to a host over UA
 ## Bootloader / vector-table notes (don't break these)
 
 - HK32 `main()` relocates vector table to `FLASH_BASE | 0x2000` (bootloader @ 0x2000); device version read from `0x08001900`.
-- GRAY_V2 sets `SCB->VTOR = FLASH_BASE | 0x3800` (bootloader @ 0x3800, linked 0x08003800); calibration cfg @ `0x08007800`, version @ `0x08007900` (Flash).
-- G0 targets have **no IWDG** and no VTOR relocation except GRAY_V2's 0x3800.
+- GRAY_V1 and GRAY_V2 set `SCB->VTOR = FLASH_BASE | 0x3800` (bootloader @ 0x3800, apps linked 0x08003800); GRAY_V2 calibration cfg @ `0x08007800`, version @ `0x08007900` (Flash).
+- G0 targets have **no IWDG**; VTOR relocation (0x3800) is done by GRAY_V1 and GRAY_V2, not by NFC (standalone @ flash base).
 
 ## Before editing sensitive areas, read
 

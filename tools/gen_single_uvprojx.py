@@ -18,7 +18,8 @@ matter which product they are used for.
 
 Products (template file -> project file):
   HK32_BIG_MOTOR    (AC6) -> HK32_BIG_MOTOR.uvprojx / SMALL_MOTOR / COLOR
-  STM32_GRAY_V1     (AC5) -> STM32_GRAY_V1.uvprojx / STM32_NFC
+  STM32_GRAY_V1     (AC6, bootloader app @ 0x08003800) -> STM32_GRAY_V1.uvprojx
+  STM32_NFC         (AC5, standalone @ 0x08000000)     -> STM32_NFC.uvprojx
   STM32_GRAY_V2     (AC6) -> STM32_GRAY_V2.uvprojx
 """
 import re, os
@@ -42,6 +43,7 @@ TPL = {
     "HK32":  split_tpl(os.path.join(PRJ, "HK32_BIG_MOTOR.uvprojx")),
     "G0F6":  split_tpl(os.path.join(PRJ, "STM32_GRAY_V1.uvprojx")),
     "G0K6":  split_tpl(os.path.join(PRJ, "STM32_GRAY_V2.uvprojx")),
+    "NFC":   split_tpl(os.path.join(PRJ, "STM32_NFC.uvprojx")),
 }
 
 # ---------- file group helpers ----------
@@ -242,7 +244,7 @@ PRODUCTS = [
     ("HK32_SMALL_MOTOR.uvprojx",  "HK32", "HK32_SMALL_MOTOR",  "SMALL_MOTOR", "HK32F030M,HK32F030MF4P6,SMALL_MOTOR=1", HK32_INC, HK32_GROUPS),
     ("HK32_COLOR.uvprojx",        "HK32", "HK32_COLOR",        "COLOR",       "HK32F030M,HK32F030MF4P6,COLOR=1",       HK32_INC, HK32_GROUPS),
     ("STM32_GRAY_V1.uvprojx",     "G0F6", "STM32_GRAY_V1",     "GRAY_V1",     "USE_HAL_DRIVER,STM32G030xx,GRAY_V1=1",   GRAYV1_INC, GRAYV1_GROUPS),
-    ("STM32_NFC.uvprojx",         "G0F6", "STM32_NFC",         "NFC_G030F6",  "USE_HAL_DRIVER,STM32G030xx,NFC_G030F6=1", NFC_INC, NFC_GROUPS),
+    ("STM32_NFC.uvprojx",         "NFC",  "STM32_NFC",         "NFC_G030F6",  "USE_HAL_DRIVER,STM32G030xx,NFC_G030F6=1", NFC_INC, NFC_GROUPS),
     ("STM32_GRAY_V2.uvprojx",     "G0K6", "STM32_GRAY_V2",     "GRAY_V2",     "USE_HAL_DRIVER,STM32G030xx,GRAY_V2=1",   GRAYV2_INC, GRAYV2_GROUPS),
 ]
 
