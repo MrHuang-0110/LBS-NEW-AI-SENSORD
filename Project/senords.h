@@ -39,8 +39,12 @@
 #define NFC_G030F6 0
 #endif
 
-#if (BIG_MOTOR + SMALL_MOTOR + COLOR + GRAY_V1 + GRAY_V2 + NFC_G030F6) != 1
-#error "senords.h: exactly one product macro (BIG_MOTOR/SMALL_MOTOR/COLOR/GRAY_V1/GRAY_V2/NFC_G030F6) must be 1"
+#ifndef IR_REMOTE
+#define IR_REMOTE 0
+#endif
+
+#if (BIG_MOTOR + SMALL_MOTOR + COLOR + GRAY_V1 + GRAY_V2 + NFC_G030F6 + IR_REMOTE) != 1
+#error "senords.h: exactly one product macro (BIG_MOTOR/SMALL_MOTOR/COLOR/GRAY_V1/GRAY_V2/NFC_G030F6/IR_REMOTE) must be 1"
 #endif
 
 #define USER_SourceID 0x97
@@ -57,6 +61,8 @@
 #define USER_ObjectID 0xB0
 #elif NFC_G030F6
 #define USER_ObjectID 0xB2
+#elif IR_REMOTE
+#define USER_ObjectID 0xA3
 #endif
 
 /* ============ HK32F030M 平台数据结构（BIG_MOTOR/SMALL_MOTOR/COLOR） ============ */
@@ -91,5 +97,18 @@ typedef struct __attribute__((packed)) {
 void uploading_data(void);
 
 #endif /* HK32F030M 平台 */
+
+/* ============ PY32F002B platform (IR_REMOTE) ============ */
+#if IR_REMOTE
+
+/* Uploaded with index 0xED every 10 ms while the host link is up. */
+typedef struct __attribute__((packed)) {
+	unsigned char state;	/* 0=off 1=red 2=green 3=blue */
+	unsigned char bat;	/* 0..100 battery %, 0xFF = unknown */
+} ir_packet_t;
+
+void uploading_data(void);
+
+#endif /* PY32F002B platform */
 
 #endif

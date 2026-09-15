@@ -34,6 +34,9 @@
 JLinkLog.txt
 *.ini
 
+# Office / Excel lock files (created while a document is open)
+~$*
+
 # Build output directories
 Project/Objects/
 Project/Listings/

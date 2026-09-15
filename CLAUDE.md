@@ -4,32 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Unified firmware family for small sensor/actuator peripherals that talk to a host over UART. **Six independent single-target Keil projects** (one per product) across two chip platforms:
+Unified firmware family for small sensor/actuator peripherals that talk to a host over UART. **Seven independent single-target Keil projects** (one per product) across three chip platforms:
 
-> **Why single-target:** UV4 (GUI Rebuild and CLI `-b`, verified on official Keil projects) merges ALL targets' files into the active target for ANY multi-target project ‚Ä?a multi-target `.uvprojx` is unusable. Never create one here.
+> **Why single-target:** UV4 (GUI Rebuild and CLI `-b`, verified on official Keil projects) merges ALL targets' files into the active target for ANY multi-target project ÔøΩ?a multi-target `.uvprojx` is unusable. Never create one here.
 
 | Project file (Project/) | Chip | Product macro | ObjectID | Product |
-|---|---|---|---|---|
-| `HK32_BIG_MOTOR.uvprojx` | HK32F030MF4P6 | `BIG_MOTOR=1` | 0xA1 | Â§ßÁîµÊú?(TIM encoder) |
-| `HK32_SMALL_MOTOR.uvprojx` | HK32F030MF4P6 | `SMALL_MOTOR=1` | 0xA6 | ‰∏≠ÁîµÊú?(TIM encoder) |
-| `HK32_COLOR.uvprojx` | HK32F030MF4P6 | `COLOR=1` | 0xA2 | È¢úËâ≤‰º†ÊÑüÂô?LTR-381RGB |
-| `STM32_GRAY_V1.uvprojx` | STM32G030F6P6 | `GRAY_V1=1` | 0xA9 | ÁÅ∞Â∫¶‰º†ÊÑüÂô?V1 (4ch ADC) |
-| `STM32_GRAY_V2.uvprojx` | STM32G030K6T6 | `GRAY_V2=1` | 0xB0 | ÁÅ∞Â∫¶‰º†ÊÑüÂô?V2 (7ch ADC) |
+| --- | --- | --- | --- | --- |
+| `HK32_BIG_MOTOR.uvprojx` | HK32F030MF4P6 | `BIG_MOTOR=1` | 0xA1 | Â§ßÁîµÔøΩ?(TIM encoder) |
+| `HK32_SMALL_MOTOR.uvprojx` | HK32F030MF4P6 | `SMALL_MOTOR=1` | 0xA6 | ‰∏≠ÁîµÔøΩ?(TIM encoder) |
+| `HK32_COLOR.uvprojx` | HK32F030MF4P6 | `COLOR=1` | 0xA2 | È¢úËâ≤‰º†ÊÑüÔøΩ?LTR-381RGB |
+| `STM32_GRAY_V1.uvprojx` | STM32G030F6P6 | `GRAY_V1=1` | 0xA9 | ÁÅ∞Â∫¶‰º†ÊÑüÔøΩ?V1 (4ch ADC) |
+| `STM32_GRAY_V2.uvprojx` | STM32G030K6T6 | `GRAY_V2=1` | 0xB0 | ÁÅ∞Â∫¶‰º†ÊÑüÔøΩ?V2 (7ch ADC) |
 | `STM32_NFC.uvprojx` | STM32G030F6P6 | `NFC_G030F6=1` | 0xB2 | Â∞ÑÈ¢ëËØªÂç° RC522 (SPI) |
+| `PY32_IR_REMOTE.uvprojx` | PY32F002Bx5 | `IR_REMOTE=1` | 0xA3 | Á∫¢Â§ñÂèëÂ∞Ñ/Êé•Êî∂Ôºà‰∏Ä‰ªΩÂõ∫‰ª∂ÔºåPB2 ÂÜ≥ÂÆöËßíËâ≤Ôºâ |
 
-**Product macro** (`BIG_MOTOR` / `SMALL_MOTOR` / `COLOR` / `GRAY_V1` / `GRAY_V2` / `NFC_G030F6`) is injected via the Keil target's preprocessor Define. Exactly one must be `1`; `[Project/senords.h](Project/senords.h)` enforces this with `#error`. `USER_SourceID` is `0x97` for all products.
+**Product macro** (`BIG_MOTOR` / `SMALL_MOTOR` / `COLOR` / `GRAY_V1` / `GRAY_V2` / `NFC_G030F6` / `IR_REMOTE`) is injected via the Keil target's preprocessor Define. Exactly one must be `1`; `[Project/senords.h](Project/senords.h)` enforces this with `#error`. `USER_SourceID` is `0x97` for all products.
 
-Platform code is **not interchangeable**: HK32F030M uses the vendor standard-peripheral library (`Source/Libraries`), STM32G030 uses the STM32 HAL (`G0/HAL`). They cannot share a compilation unit ‚Ä?hence one project per chip platform.
+Platform code is **not interchangeable**: HK32F030M uses the vendor standard-peripheral library (`Source/Libraries`), STM32G030 uses the STM32 HAL (`G0/HAL`), PY32F002B uses the Puya HAL (`PY32/HAL`). They cannot share a compilation unit ÔøΩ?hence one project per chip platform.
 
 ## Build / flash / clean
 
-Keil ¬µVision (MDK-ARM) projects ‚Ä?no Makefile or CMake.
+Keil ¬µVision (MDK-ARM) projects ÔøΩ?no Makefile or CMake.
 
 - **Open & build:** open the product's project file in Keil ¬µVision (e.g. [Project/HK32_BIG_MOTOR.uvprojx](Project/HK32_BIG_MOTOR.uvprojx)), then build (F7). Each file is single-target and carries its own product Define.
-- **Flash / debug:** HK32 via J-Link (flash algo `HK32F030MXX_16.FLM`); STM32G030 via ST-Link. Each project's after-build runs fromelf `--bin` ‚Ü?`Project/Objects/<PRODUCT>/<PRODUCT>.bin` (APP image for the bootloader).
+- **Flash / debug:** HK32 via J-Link (flash algo `HK32F030MXX_16.FLM`); STM32G030 via ST-Link, PY32F002B via UL2CM3 (`PY32F002Bxx_24.FLM`). Each project's after-build runs fromelf `--bin` ÔøΩ?`Project/Objects/<PRODUCT>/<PRODUCT>.bin` (APP image for the bootloader).
 - **Clean intermediate files:** `keilkill.bat` from repo root (keeps `*.opt`).
 - **No test framework.** Verification is on hardware over UART.
-- `tools/gen_single_uvprojx.py` regenerates the 6 single-target projects (templates = the generated projects themselves; only per-product TargetName/Output/Define/IncludePath/Groups/fromelf are rewritten; per-product AC5/AC6 compiler, memory layout and debugger are kept). `tools/gen_uvprojx.py` is the legacy multi-target generator ‚Ä?do not use.
+- `tools/gen_single_uvprojx.py` regenerates the 6 single-target projects (templates = the generated projects themselves; only per-product TargetName/Output/Define/IncludePath/Groups/fromelf are rewritten; per-product AC5/AC6 compiler, memory layout and debugger are kept). `tools/gen_uvprojx.py` is the legacy multi-target generator ÔøΩ?do not use.
 
 ## Source layout
 
@@ -37,12 +38,12 @@ Keil ¬µVision (MDK-ARM) projects ‚Ä?no Makefile or CMake.
 Project/
   senords.h      Product macros + USER_ObjectID selection + HK32 packet structs
   senords.c      HK32 app layer: pull_data_from_queue() + uploading_data()
-  <PRODUCT>.uvprojx  6 single-target Keil projects (HK32_*, STM32_*) ‚Ä?one per product
+  <PRODUCT>.uvprojx  7 single-target Keil projects (HK32_*, STM32_*, PY32_IR_REMOTE) ÔøΩ?one per product
 Source/          HK32F030M platform (std-periph lib)
   User/          main.c (vector-table relocation, init, IWDG), hk32f030m_it.c, define.h
   Handware/      dataAnalysisProtocol/ (shared wire protocol), queue/, USART/, TIMER/, PWM/,
                  SysTick/, ltr381xx/, IIC/   (tftprintf/ is a tiny printf)
-  Libraries/     Vendor HK32F030M CMSIS + peripheral lib ‚Ä?treat as upstream, don't edit.
+  Libraries/     Vendor HK32F030M CMSIS + peripheral lib ÔøΩ?treat as upstream, don't edit.
 G0/              STM32G030 platform (STM32 HAL)
   Core/          startup_stm32g030xx.s, system_stm32g0xx.c (shared)
   HAL/           STM32G0xx HAL + CMSIS libs (from FW_G0 V1.6.3)
@@ -51,9 +52,14 @@ G0/              STM32G030 platform (STM32 HAL)
                  agreement_comx, driver_sys, stmflash, rx_data_queue
   App/nfc/       NFC: main.c, gpio/spi/usart, it, hal_msp, rc522.c (+522.c not compiled),
                  user/data_analysis.c, user/queue.c
+PY32/            PY32F002B platform (Puya HAL)
+  Core/          startup_py32f002xx.s, system_py32f002b.c (shared)
+  HAL/           PY32F002B HAL + CMSIS (do not edit)
+  App/ir_remote/ IR_REMOTE: main, gpio/usart/tim/adc, ir_proto, driver_ir,
+                 agreement_comx, rx_data_queue, hal_msp, it
 Doc/             empty Readme.txt
-tools/           gen_single_uvprojx.py (regen the 6 single-target projects), gen_uvprojx.py (legacy
-                 multi-target generator ‚Ä?do not use), syntax_check.py, arm_ext.h
+tools/           gen_single_uvprojx.py (regen the 7 single-target projects), gen_uvprojx.py (legacy
+                 multi-target generator ÔøΩ?do not use), syntax_check.py, arm_ext.h
 ```
 
 ## Communication protocol ([Source/Handware/dataAnalysisProtocol/data_analysis.c](Source/Handware/dataAnalysisProtocol/data_analysis.c))
@@ -64,37 +70,51 @@ Shared wire format on USART1 (115200 8N1), framed by `0x5A` head / `0xA5` tail w
 [0x5A][ObjectID][SourceID][len][typeIndex][payload...][crc][0xA5]
 ```
 
-- Outbound: `SendCOMdata` (text/C-string) and `SendCOMdataByte` (binary struct). HK32 builds into a 32-byte `tx_cache` ‚Ä?**payloads > ~25 bytes overflow**.
-- All six products use the same framing and command set:
-  - `0x09 "Please Link"` handshake ‚Ü?reply `"Play Aplication"`; **no uploads until linked**.
-  - `0xED` ‚Ä?HK32 motor targets: PWM duty (TIM2->CCR1/CCR2); all products: data upload index.
-  - `0xDD` ‚Ä?HK32 motor: encoder reset. `0xEE` ‚Ä?reboot (`NVIC_SystemReset()`).
+- Outbound: `SendCOMdata` (text/C-string) and `SendCOMdataByte` (binary struct). HK32 builds into a 32-byte `tx_cache` ÔøΩ?**payloads > ~25 bytes overflow**.
+- All seven products use the same framing and command set:
+  - `0x09 "Please Link"` handshake ÔøΩ?reply `"Play Aplication"`; **no uploads until linked**.
+  - `0xED` ÔøΩ?HK32 motor targets: PWM duty (TIM2->CCR1/CCR2); all products: data upload index.
+  - `0xDD` ÔøΩ?HK32 motor: encoder reset. `0xEE` ÔøΩ?reboot (`NVIC_SystemReset()`).
   - GRAY_V2 adds `0xD0` calibrate / `0xD1` LED RGB / `0xD2` set threshold.
-- G0 products each carry their own copy of the protocol (GrayV1 inlines `SendCOMdata` in usart.c; GrayV2 uses agreement_comx.c `MultiUart_SendFrame`; NFC uses `user/data_analysis.c`) ‚Ä?same framing, `USER_ObjectID` from senords.h.
+  - IR_REMOTE (`0xA3`) uses `0xD1 <state>` (0=off 1=red 2=green 3=blue) to set the receiver colour and uploads `ir_packet_t{state, bat}` on `0xED`.
+- G0 products each carry their own copy of the protocol (GrayV1 inlines `SendCOMdata` in usart.c; GrayV2 uses agreement_comx.c `MultiUart_SendFrame`; NFC uses `user/data_analysis.c`) ÔøΩ?same framing, `USER_ObjectID` from senords.h.
 
 ## Architecture notes
 
 ### HK32F030M (projects `HK32_*`)
-- `main()` ([Source/User/main.c](Source/User/main.c)) relocates the vector table to `FLASH_BASE | 0x2000` ‚Ä?bootloader at offset `0x2000`. Device version read from `0x08001900`.
-- UART RX: interrupt ‚Ü?ring queue (`queue.c`, 16√ó32B) ‚Ü?main loop `pull_data_from_queue()`. Never parse protocol in ISRs.
-- **IWDG enabled** (`IWDG_Prescaler_128`, reload 49) and fed only in main loop ‚Ä?a hung ISR resets the chip.
+
+- `main()` ([Source/User/main.c](Source/User/main.c)) relocates the vector table to `FLASH_BASE | 0x2000` ÔøΩ?bootloader at offset `0x2000`. Device version read from `0x08001900`.
+- UART RX: interrupt ÔøΩ?ring queue (`queue.c`, 16√ó32B) ÔøΩ?main loop `pull_data_from_queue()`. Never parse protocol in ISRs.
+- **IWDG enabled** (`IWDG_Prescaler_128`, reload 49) and fed only in main loop ÔøΩ?a hung ISR resets the chip.
 - TIM6 is the 1 ms tick (`timer.c`); upload cadence ~5 ms when linked.
 - `Project/senords.c` `uploading_data()` sends packed structs via `SendCOMdataByte(..., 0xED)`:
   - Motor: `motor_packet_t {int speed,pos,angle,version}`; angle = pos/PPR*360. PPR: BIG_MOTOR 90, SMALL_MOTOR 62 (pwm.c).
   - COLOR: `color_packet_t {uint version; float lux; ushort ReadRaw,GreenRaw,BlueRaw}` from LTR-381RGB over bit-banged I2C on PC5/PC6 (`ltr381xx.c` + `bsp_i2c.c`). COLOR LED on PD2/PD3.
-- KT_MOTOR variant and its drivers (KTH782xx/, SPI/) were **removed** ‚Ä?do not reintroduce.
+- KT_MOTOR variant and its drivers (KTH782xx/, SPI/) were **removed** ÔøΩ?do not reintroduce.
 
 ### STM32G030 (projects `STM32_*`)
-- HAL-based, CubeMX-style layout per product under `G0/App/`. Each product has its own `main.c`, peripherals, and IRQ handlers ‚Ä?they are isolated by target file groups.
-- GRAY_V1 (`G0/App/gray_v1`): ADC1 4ch (PA0‚ÄìPA3) DMA circular ‚Ü?50-sample average ‚Ü?normalize ‚Ü?text upload `"n/n/n/n/s/s/s/s/ver"`; LED1-5 PA11/PA8/PA7/PA6/PA5, LED6/7 PC14/PC15, KEY PA12 long-press calibrate (RAM only, not Flash). TIM3 1 ms drives upload. **SCB->VTOR = FLASH_BASE | 0x3800** (bootloader at 0x3800, linked 0x08003800). USART1 PB6/PB7.
-- GRAY_V2 (`G0/App/gray_v2`): ADC1 7ch (PA0‚ÄìPA6) DMA single-shot; median filter + ambient compensation + moving average ‚Ü?0‚Ä?99; threshold configurable, calibration persisted to Flash (`stmflash`, cfg @ 0x08007800, version @ 0x08007900); **SCB->VTOR = FLASH_BASE | 0x3800** (bootloader at 0x3800, linked 0x08003800). Binary `gray_packet_t` upload. USART1 PA9/PA10.
-- NFC (`G0/App/nfc`): RC522/SI522A RFID via SPI1 (PA1 SCK, PA2 MOSI, PA6 MISO, PA4 NSS, PA5 RST); card number from MIFARE sector read ‚Ü?text upload `"num/100"`. USART1 PB6/PB7. `522.c` is a legacy driver, **not compiled** ‚Ä?only `rc522.c`.
+
+- HAL-based, CubeMX-style layout per product under `G0/App/`. Each product has its own `main.c`, peripherals, and IRQ handlers ÔøΩ?they are isolated by target file groups.
+- GRAY_V1 (`G0/App/gray_v1`): ADC1 4ch (PA0‚ÄìPA3) DMA circular ÔøΩ?50-sample average ÔøΩ?normalize ÔøΩ?text upload `"n/n/n/n/s/s/s/s/ver"`; LED1-5 PA11/PA8/PA7/PA6/PA5, LED6/7 PC14/PC15, KEY PA12 long-press calibrate (RAM only, not Flash). TIM3 1 ms drives upload. **SCB->VTOR = FLASH_BASE | 0x3800** (bootloader at 0x3800, linked 0x08003800). USART1 PB6/PB7.
+- GRAY_V2 (`G0/App/gray_v2`): ADC1 7ch (PA0‚ÄìPA6) DMA single-shot; median filter + ambient compensation + moving average ÔøΩ?0ÔøΩ?99; threshold configurable, calibration persisted to Flash (`stmflash`, cfg @ 0x08007800, version @ 0x08007900); **SCB->VTOR = FLASH_BASE | 0x3800** (bootloader at 0x3800, linked 0x08003800). Binary `gray_packet_t` upload. USART1 PA9/PA10.
+- NFC (`G0/App/nfc`): RC522/SI522A RFID via SPI1 (PA1 SCK, PA2 MOSI, PA6 MISO, PA4 NSS, PA5 RST); card number from MIFARE sector read ÔøΩ?text upload `"num/100"`. USART1 PB6/PB7. `522.c` is a legacy driver, **not compiled** ÔøΩ?only `rc522.c`.
 - G0 targets have **no IWDG** (except none configured) and no vector-table relocation except GRAY_V1/GRAY_V2's 0x3800 (NFC runs standalone from flash base).
+- PY32 `PY32_IR_REMOTE` is standalone at flash base (no bootloader, no VTOR change, no IWDG).
+
+### PY32F002B (project `PY32_IR_REMOTE`)
+
+- One firmware for both ends of an IR link (`PY32/App/ir_remote/`): PB2 is sampled once at boot (HIGH = emitter, LOW = receiver); the role never changes at run time.
+- **Emitter**: host UART on PA3/PA4 (115200 8N1, `agreement_comx.c` framing, ObjectID 0xA3). `0x09` handshake ??reply `"Play Aplication"`; `0xD1 <state>` sets the colour (0=off 1=red 2=green 3=blue); uploads `ir_packet_t{state, bat}` on `0xED` every 10 ms while linked (`bat` = 0..100, `0xFF` = unknown).
+- **Receiver**: no USART1, no host link. Decodes the IR colour frame, drives PA5/PA6/PA7 (active high), samples PB1 (1/2 divider, 3xAAA) once a second and shows a low battery on PB0 (blinks when <=10%). The emitter board has only an IR LED and no IR receiver head, so the reverse link is compiled out (IR_REVERSE_LINK 0), bat is always 0xFF and the receiver's battery is reported locally only.
+- **IR link** (`ir_proto.c`): NEC-style envelope generated in software ??9 ms mark + 4.5 ms space header, 560 ¬µs bit marks, 560/1690 ¬µs spaces, 32 bits = address, ~address, command, ~command. The 38 kHz carrier is generated by the MCU itself: PA0 drives a bare IR LED and every mark is emitted as a 38 kHz burst (active low), because the receiver is a 38 kHz demodulator module. The address byte selects the direction: `0x5A` emitter->receiver (colour), `0xA5` receiver->emitter (battery percent, currently unused because there is no reverse link).
+- Timing uses TIM14 as a 1 ¬µs free-running counter (`tim.c`); `HAL_GetTick()` is far too coarse. `ir_send_frame()` blocks ~68 ms per frame. Emitter schedule: 3 frames on colour change, 1 refresh frame per second, then a 350 ms receive window.
+- Standalone: 24 KB Flash / 3 KB RAM, AC5, links at `0x08000000`, no bootloader, no VTOR relocation, no IWDG.
 
 ## Conventions specific to this codebase
+
 - Keep new message types inside the existing `typeIndex` switch (or the per-product parse in G0 apps); don't add a parallel parser.
-- GBK-encoded Chinese comments are common in `Source/` and `G0/App/*` ‚Ä?preserve encoding, don't re-encode wholesale.
-- HK32 `bool` is split two ways and must not be mixed: `Source/User/define.h` typedefs its own `bool`/`BOOL` as `volatile unsigned char` (legacy), but `Source/User/main.c`, `TIMER/timer.c`, and `Project/senords.c` use C99 `<stdbool.h>` for the `linkState`/`uploadState` flags. `uploadState` is **defined in `timer.c`** and `extern` in `main.c` ‚Ä?both must see the same stdbool `bool` or the extern type mismatches; any TU touching these flags needs `#include "stdbool.h"`, not `define.h`'s typedef.
-- `Source/Handware/tftprintf/printf.c` is a tiny ported printf for output routing ‚Ä?not the toolchain printf.
+- GBK-encoded Chinese comments are common in `Source/` and `G0/App/*` ÔøΩ?preserve encoding, don't re-encode wholesale.
+- HK32 `bool` is split two ways and must not be mixed: `Source/User/define.h` typedefs its own `bool`/`BOOL` as `volatile unsigned char` (legacy), but `Source/User/main.c`, `TIMER/timer.c`, and `Project/senords.c` use C99 `<stdbool.h>` for the `linkState`/`uploadState` flags. `uploadState` is **defined in `timer.c`** and `extern` in `main.c` ÔøΩ?both must see the same stdbool `bool` or the extern type mismatches; any TU touching these flags needs `#include "stdbool.h"`, not `define.h`'s typedef.
+- `Source/Handware/tftprintf/printf.c` is a tiny ported printf for output routing ÔøΩ?not the toolchain printf.
 - `G0/App/nfc/user/queue.c` and `Source/Handware/queue/queue.c` are near-identical ring queues (16√ó32B) kept per-platform; don't merge them across platforms.
-- `tools/arm_ext.h` + `tools/syntax_check.py` provide a GCC-based syntax sanity check (gcc doesn't know `__weak`/`__align`, so arm_ext.h stubs them). Run `python tools/syntax_check.py` after structural edits ‚Ä?it checks all 6 product source sets.
+- `tools/arm_ext.h` + `tools/syntax_check.py` provide a GCC-based syntax sanity check (gcc doesn't know `__weak`/`__align`, so arm_ext.h stubs them). Run `python tools/syntax_check.py` after structural edits ÔøΩ?it checks all 6 product source sets.

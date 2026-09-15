@@ -28,22 +28,31 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PRJ = os.path.join(ROOT, "Project")
 
 def read(p):
-    with open(p, "r", encoding="utf-8", errors="replace") as f:
-        return f.read()
+    try:
+        with open(p, "r", encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except OSError as e:
+        raise SystemExit("cannot read %s: %s" % (p, e))
 
 def split_tpl(path):
     """Return (header, first <Target> block, footer) of a single-target project."""
     x = read(path)
     i = x.index("<Targets>")
     j = x.index("</Targets>") + len("</Targets>")
-    tgt = re.search(r"<Target>.*?</Target>", x[i:j], re.S).group(0)
-    return x[:i], tgt, x[j:]
+    m = re.search(r"[ \t]*<Target>.*?</Target>", x[i:j], re.S)
+    if m is None:
+        raise ValueError("no <Target> block in %s" % path)
+    # drop the blank-line run before <RTE>/<LayerInfo>: build_single() emits its
+    # own separator, otherwise one blank line is added on every run
+    footer = x[j:].lstrip("\r\n")
+    return x[:i], m.group(0), footer
 
 TPL = {
     "HK32":  split_tpl(os.path.join(PRJ, "HK32_BIG_MOTOR.uvprojx")),
     "G0F6":  split_tpl(os.path.join(PRJ, "STM32_GRAY_V1.uvprojx")),
     "G0K6":  split_tpl(os.path.join(PRJ, "STM32_GRAY_V2.uvprojx")),
     "NFC":   split_tpl(os.path.join(PRJ, "STM32_NFC.uvprojx")),
+    "PY32":  split_tpl(os.path.join(PRJ, "PY32_IR_REMOTE.uvprojx")),
 }
 
 # ---------- file group helpers ----------
@@ -141,7 +150,7 @@ G0_HAL_SPI = [("stm32g0xx_hal_spi.c", 1, G0_HAL_SRC + r"\stm32g0xx_hal_spi.c"),
               ("stm32g0xx_hal_spi_ex.c", 1, G0_HAL_SRC + r"\stm32g0xx_hal_spi_ex.c")]
 
 def g0_core_group(app_dir, extra_app, startup, hal_list):
-    """app_dir: relative path to the product App dir (e.g. ..\G0\App\gray_v1)."""
+    r"""app_dir: relative path to the product App dir (e.g. ..\G0\App\gray_v1)."""
     files = []
     if startup:
         files.append(("startup_stm32g030xx.s", 2, r"..\G0\Core\startup_stm32g030xx.s"))
@@ -199,14 +208,68 @@ GRAYV2_APP = [("main.c", 1, r"..\G0\App\gray_v2\main.c"),
 GRAYV2_GROUPS = g0_core_group(r"..\G0\App\gray_v2", GRAYV2_APP, True, G0_HAL_BASE + G0_HAL_ADC)
 GRAYV2_INC = r"..\G0\App\gray_v2;" + G0_INC_COMMON
 
+# ---------- PY32 groups (PY32/ tree) ----------
+PY32_HAL_SRC = r"..\PY32\HAL\PY32F002B_HAL_Driver\Src"
+PY32_HAL = [(n, 1, PY32_HAL_SRC + "\\" + n) for n in [
+    "py32f002b_hal.c", "py32f002b_hal_adc.c", "py32f002b_hal_comp.c", "py32f002b_hal_cortex.c",
+    "py32f002b_hal_crc.c", "py32f002b_hal_exti.c", "py32f002b_hal_flash.c", "py32f002b_hal_gpio.c",
+    "py32f002b_hal_i2c.c", "py32f002b_hal_iwdg.c", "py32f002b_hal_lptim.c", "py32f002b_hal_pwr.c",
+    "py32f002b_hal_rcc.c", "py32f002b_hal_rcc_ex.c", "py32f002b_hal_spi.c", "py32f002b_hal_tim.c",
+    "py32f002b_hal_tim_ex.c", "py32f002b_hal_uart.c", "py32f002b_hal_usart.c"]]
+
+PY32_APP = [("startup_py32f002xx.s", 2, r"..\PY32\Core\startup_py32f002xx.s"),
+            ("system_py32f002b.c", 1, r"..\PY32\Core\system_py32f002b.c"),
+            ("main.c", 1, r"..\PY32\App\ir_remote\main.c"),
+            ("gpio.c", 1, r"..\PY32\App\ir_remote\gpio.c"),
+            ("usart.c", 1, r"..\PY32\App\ir_remote\usart.c"),
+            ("tim.c", 1, r"..\PY32\App\ir_remote\tim.c"),
+            ("adc.c", 1, r"..\PY32\App\ir_remote\adc.c"),
+            ("ir_proto.c", 1, r"..\PY32\App\ir_remote\ir_proto.c"),
+            ("driver_ir.c", 1, r"..\PY32\App\ir_remote\driver_ir.c"),
+            ("agreement_comx.c", 1, r"..\PY32\App\ir_remote\agreement_comx.c"),
+            ("rx_data_queue.c", 1, r"..\PY32\App\ir_remote\rx_data_queue.c"),
+            ("py32f002b_hal_msp.c", 1, r"..\PY32\App\ir_remote\py32f002b_hal_msp.c"),
+            ("py32f002b_it.c", 1, r"..\PY32\App\ir_remote\py32f002b_it.c"),
+            ("main.h", 5, r"..\PY32\App\ir_remote\main.h")]
+
+PY32_GROUPS = group("Application/Core", PY32_APP) + \
+              group("Drivers/PY32F002B_HAL_Driver", PY32_HAL) + \
+              group("Drivers/CMSIS", [("py32f002b_hal_conf.h", 5,
+                                       r"..\PY32\App\ir_remote\py32f002b_hal_conf.h")]) + \
+              group("Doc", [("Readme.txt", 5, r"..\Doc\Readme.txt")])
+
+PY32_INC = (r"..\PY32\App\ir_remote;..\PY32\Core;"
+            r"..\PY32\HAL\PY32F002B_HAL_Driver\Inc;..\PY32\HAL\CMSIS\Include;"
+            r"..\PY32\HAL\CMSIS\Device\PY32F0xx\Include;..\Project")
+
+
 # ---------- single-target builder ----------
 FROMELF = r"D:\MDK\ARM\ARMCLANG\bin\fromelf.exe --bin -o .\Objects\{o}\{o}.bin .\Objects\{o}\{o}.axf"
 
 def indent_block(block):
+    """Emit a target block at a fixed 4-space base indentation.
+
+    Templates are the generated projects themselves, so the block read back
+    already carries the indentation left by the previous run. Shifting every
+    line by (4 - first-line indent) instead of blindly prepending 4 spaces
+    makes the output stable no matter how often the generator runs.
+    """
+    lines = block.split("\n")
+    first = lines[0]
+    cur = len(first) - len(first.lstrip(" "))
+    delta = 4 - cur
     out = []
-    for line in block.split("\n"):
-        out.append("    " + line if line.strip() else line)
+    for line in lines:
+        if not line.strip():
+            out.append(line)
+            continue
+        if delta >= 0:
+            out.append(" " * delta + line)
+        else:
+            have = len(line) - len(line.lstrip(" "))
+            out.append(line[min(-delta, have):])
     return "\n".join(out)
+
 
 def build_single(tpl, tname, outname, define, incpath, groups):
     header, tgt, footer = tpl
@@ -235,7 +298,7 @@ def build_single(tpl, tname, outname, define, incpath, groups):
         t = t.replace(am.group(0), am_new)
     else:
         print("WARNING: no <AfterMake>, fromelf not injected for", tname)
-    return header + "<Targets>\n" + indent_block(t) + "\n  </Targets>\n" + footer
+    return header + "<Targets>\n" + indent_block(t) + "\n  </Targets>\n\n\n" + footer
 
 # ---------- 6 products ----------
 PRODUCTS = [
@@ -246,11 +309,15 @@ PRODUCTS = [
     ("STM32_GRAY_V1.uvprojx",     "G0F6", "STM32_GRAY_V1",     "GRAY_V1",     "USE_HAL_DRIVER,STM32G030xx,GRAY_V1=1",   GRAYV1_INC, GRAYV1_GROUPS),
     ("STM32_NFC.uvprojx",         "NFC",  "STM32_NFC",         "NFC_G030F6",  "USE_HAL_DRIVER,STM32G030xx,NFC_G030F6=1", NFC_INC, NFC_GROUPS),
     ("STM32_GRAY_V2.uvprojx",     "G0K6", "STM32_GRAY_V2",     "GRAY_V2",     "USE_HAL_DRIVER,STM32G030xx,GRAY_V2=1",   GRAYV2_INC, GRAYV2_GROUPS),
+    ("PY32_IR_REMOTE.uvprojx",    "PY32", "PY32_IR_REMOTE",    "IR_REMOTE",   "USE_HAL_DRIVER,PY32F002Bx5,IR_REMOTE=1", PY32_INC, PY32_GROUPS),
 ]
 
 for fname, tplkey, tname, outname, define, inc, groups in PRODUCTS:
     content = build_single(TPL[tplkey], tname, outname, define, inc, groups)
     dst = os.path.join(PRJ, fname)
-    with open(dst, "w", encoding="utf-8", newline="") as f:
-        f.write(content)
+    try:
+        with open(dst, "w", encoding="utf-8", newline="") as f:
+            f.write(content)
+    except OSError as e:
+        raise SystemExit("cannot write %s: %s" % (dst, e))
     print("written:", dst, len(content), "bytes")
