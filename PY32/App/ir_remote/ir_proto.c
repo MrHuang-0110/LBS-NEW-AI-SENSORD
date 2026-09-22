@@ -29,6 +29,13 @@
  * emitter keeps the host upload heartbeat alive while the IR burst is sent. */
 void ir_background_poll(void);
 
+/* Address pair of the most recent decode attempt, kept separately from the
+ * full-frame result so a damaged command byte does not hide the fact that a
+ * frame addressed to us arrived (see ir_addr_seen()). */
+static bool    s_addr_seen;
+static uint8_t s_seen_addr;
+static bool    s_carrier_seen;
+
 /* One mark = a burst of 38 kHz carrier for the requested duration. */
 static void ir_mark(uint32_t us)
 {
@@ -67,6 +74,9 @@ static void ir_space(uint32_t us)
 
 void ir_proto_init(void)
 {
+    s_addr_seen = false;
+    s_seen_addr = 0U;
+    s_carrier_seen = false;
     gpio_ir_tx(false); /* idle high: not emitting */
 }
 
@@ -144,6 +154,12 @@ bool ir_poll_decode(uint8_t *addr, uint8_t *cmd)
         return false;
     }
 
+    /* The demodulator is pulling its output low, i.e. it is seeing 38 kHz
+     * carrier. Record that before judging the waveform: at very short range
+     * an overloaded module distorts the marks beyond the tolerances below,
+     * yet the emitter is clearly still transmitting. */
+    s_carrier_seen = true;
+
     /* We are inside some mark; only a header mark starts a frame. */
     if (!ir_wait_high(IR_HEADER_MARK_US + IR_TIMEOUT_SLACK_US, &mark_us)) {
         return false;
@@ -182,6 +198,14 @@ bool ir_poll_decode(uint8_t *addr, uint8_t *cmd)
                 bytes[i] |= (uint8_t)(1U << b);
             }
         }
+
+        /* The address pair is already conclusive: record it before the
+         * command bytes are judged, so a corrupted command still counts as
+         * "a frame addressed to us arrived". */
+        if (i == 1U && bytes[0] == (uint8_t)(~bytes[1])) {
+            s_seen_addr = bytes[0];
+            s_addr_seen = true;
+        }
     }
 
     /* ~address and ~command must be the bitwise complement of their pair. */
@@ -195,4 +219,25 @@ bool ir_poll_decode(uint8_t *addr, uint8_t *cmd)
     *addr = bytes[0];
     *cmd  = bytes[2];
     return true;
+}
+
+bool ir_addr_seen(uint8_t *addr)
+{
+    if (!s_addr_seen) {
+        return false;
+    }
+
+    s_addr_seen = false;
+    if (addr != NULL) {
+        *addr = s_seen_addr;
+    }
+    return true;
+}
+
+bool ir_carrier_seen(void)
+{
+    bool seen = s_carrier_seen;
+
+    s_carrier_seen = false;
+    return seen;
 }

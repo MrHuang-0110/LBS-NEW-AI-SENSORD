@@ -30,6 +30,20 @@ void ir_send_frame(uint8_t addr, uint8_t cmd);
  * from the main loop on every pass. */
 bool ir_poll_decode(uint8_t *addr, uint8_t *cmd);
 
+/* Liveness probe for a marginal link: true if the last decode attempt already
+ * validated the address / ~address pair, even when the frame was dropped
+ * afterwards because a command bit was damaged. *addr receives that address.
+ * Reading the flag clears it, so it reports one frame at a time. */
+bool ir_addr_seen(uint8_t *addr);
+
+/* Liveness probe for a link whose waveform cannot be decoded at all: true if
+ * the demodulator output went low (38 kHz carrier present) since the last
+ * read, even when no frame survived. An overloaded receiver at very short
+ * range distorts the marks but still pulls its output low, so this is what
+ * keeps a colour alive while the emitter is physically held at the receiver.
+ * Reading the flag clears it. */
+bool ir_carrier_seen(void);
+
 /* Reset the decoder state machine. */
 void ir_proto_init(void);
 

@@ -113,6 +113,21 @@ extern "C" {
 #define IR_TEST_ROLE            0
 #endif
 
+/* Bench diagnostic for the IR link itself: reuses the status LED (PB0) so no
+ * extra hardware is needed, without changing what is transmitted.
+ *   emitter : PB0 flashes briefly after EVERY IR frame actually sent, so you
+ *             can see whether the 1 s refresh bursts are really going out
+ *             (3 quick flashes per second) instead of the link-status blink.
+ *   receiver: PB0 lights while the demodulator keeps seeing 38 kHz carrier,
+ *             so it blinks in sync with incoming bursts. Dark PB0 while the
+ *             emitter is pointed at it means the module sees nothing at that
+ *             distance/angle (physical), not a hold-logic problem.
+ * Never ship with 1 (it replaces the low-battery indication on the receiver
+ * and the link indication on the emitter). */
+#ifndef IR_DIAG_IR_LED
+#define IR_DIAG_IR_LED          0
+#endif
+
 /* ------------------------------------------------------------------ */
 /* host UART (emitter role only)                                       */
 /* ------------------------------------------------------------------ */

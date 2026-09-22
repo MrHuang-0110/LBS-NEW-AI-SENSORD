@@ -5,12 +5,23 @@
  *   - 0xD1 <state> sets the colour, mirrors it on the local RGB LED and sends
  *     an IR burst to the receiver
  *   - uploads ir_packet_t {state, bat} every 10 ms (index 0xED) while linked
- *   - refresh frame every second (receiver re-sync + fresh battery reading)
+ *   - refresh burst (3 frames) every second (receiver re-sync + fresh battery
+ *     reading)
  *   - after each burst a short window listens for the battery reply
  *
  * Receiver (PB2 low):
  *   - no host UART, no uploads
  *   - decodes the colour frame, drives the RGB LED
+ *   - holds the last valid red/green/blue frame for IR_HOLD_MS: a repeated
+ *     colour, a colour change and the emitter's 1 s refresh burst all restart
+ *     the timer, and the RGB goes off once it expires; command 0 (off) turns
+ *     it off immediately and is never held
+ *   - a frame carrying our forward address whose command byte was damaged
+ *     still counts as "the emitter is sending" and restarts the timer, so a
+ *     marginal link cannot drop a colour on one corrupted refresh frame
+ *   - any 38 kHz carrier seen on PA1 also restarts the timer: at very short
+ *     range an overloaded demodulator distorts the frame beyond decoding, but
+ *     the carrier still proves the emitter is there
  *   - samples the battery every second, blinks PB0 below BAT_LOW_PERCENT
  *   - answers every accepted frame with a reverse frame carrying the percent
  */
@@ -27,7 +38,9 @@
 /* upload cadence, same order of magnitude as the other sensors */
 #define UPLOAD_INTERVAL_MS          10U
 
-/* IR schedule (see plan: 3 frames on change, 1 refresh per second) */
+/* IR schedule (3 frames on a change and on the 1 s refresh; a single frame
+ * after a second of idle is the least reliable case for the receiver's AGC
+ * demodulator, so the refresh reuses the burst) */
 #define IR_BURST_FRAMES             3U
 #define IR_FRAME_GAP_MS             40U
 #define IR_REFRESH_MS               1000U
@@ -40,10 +53,19 @@
 /* emitter marks the battery unknown again when no reply arrives */
 #define IR_BAT_STALE_MS             3000U
 
+/* receiver: how long the last valid colour frame keeps the RGB lit. The
+ * emitter re-sends every second while a colour is active, so a live link
+ * holds the colour indefinitely; a stopped/silent emitter fades after 5 s. */
+#define IR_HOLD_MS                  5000U
+
 #define BAT_SAMPLE_INTERVAL_MS      1000U
 
 #define STATUS_SLOW_BLINK_MS        500U
 #define BAT_LOW_BLINK_MS            250U
+
+/* IR_DIAG_IR_LED: per-frame flash (emitter) and carrier hold (receiver) */
+#define IR_DIAG_FLASH_MS            40U
+#define IR_DIAG_CARRIER_HOLD_MS     300U
 
 static ir_role_t s_role;
 static uint8_t   s_color;
@@ -65,6 +87,10 @@ static uint32_t  s_battery_rx_ms;
 static uint8_t   s_bat_percent = BAT_UNKNOWN;
 static bool      s_bat_sampled;
 static uint32_t  s_last_bat_ms;
+static uint32_t  s_hold_ms;     /* last accepted non-zero colour frame */
+#if IR_DIAG_IR_LED
+static uint32_t  s_diag_carrier_ms;
+#endif
 #if IR_REVERSE_LINK
 static bool      s_reply_pending;
 static uint32_t  s_last_frame_ms;
@@ -150,8 +176,15 @@ static void emitter_handle_frame(const host_frame_t *frame)
         case CMD_SET_COLOR:
             /* out of range values are ignored on purpose */
             if (frame->len >= 1U && frame->payload[0] < (uint8_t)IR_COLOR_NUM) {
-                ir_apply_color(frame->payload[0]);
-                ir_start_burst(IR_BURST_FRAMES);
+                /* Hosts commonly re-send their state at up to 10 Hz. Starting
+                 * a fresh burst for every repeat would transmit IR back to
+                 * back with no carrier-off time at all, which overloads the
+                 * receiver's AGC and makes it deaf. Only a real change
+                 * re-bursts; the 1 s refresh keeps an unchanged colour alive. */
+                if (frame->payload[0] != s_color) {
+                    ir_apply_color(frame->payload[0]);
+                    ir_start_burst(IR_BURST_FRAMES);
+                }
             }
             break;
 
@@ -173,7 +206,9 @@ static void emitter_ir_service(uint32_t now)
             s_last_tx_ms = HAL_GetTick();
             s_burst_left--;
             if (s_burst_left > 0U) {
-                s_next_frame_ms = now + IR_FRAME_GAP_MS;
+                /* measured AFTER the blocking send: using the pre-send tick
+                 * would put this in the past and send frames back to back */
+                s_next_frame_ms = s_last_tx_ms + IR_FRAME_GAP_MS;
             }
 #if IR_REVERSE_LINK
             else {
@@ -203,10 +238,12 @@ static void emitter_ir_service(uint32_t now)
 #endif
 
     /* periodic refresh: re-syncs a receiver that missed a frame or reset,
-     * and pulls a fresh battery reading */
+     * and pulls a fresh battery reading. Sent as the same 3-frame burst as a
+     * colour change: the receiver's demodulator needs the repeated frame to
+     * recover from long idle, and one dropped frame must not end its hold. */
     if ((now - s_last_refresh_ms) >= IR_REFRESH_MS) {
         s_last_refresh_ms = now;
-        ir_start_burst(1U);
+        ir_start_burst(IR_BURST_FRAMES);
     }
 }
 
@@ -285,7 +322,10 @@ static void loop_test_led(uint32_t now)
 
 static void emitter_status_led(uint32_t now)
 {
-#if IR_LOOP_TEST
+#if IR_DIAG_IR_LED
+    /* proof that a frame really went out, counted by the flash length */
+    gpio_status_led((now - s_last_tx_ms) < IR_DIAG_FLASH_MS);
+#elif IR_LOOP_TEST
     loop_test_led(now);
 #else
     if (!s_linked) {
@@ -343,13 +383,52 @@ static void receiver_service(uint32_t now)
     uint8_t cmd;
 
     if (ir_poll_decode(&addr, &cmd)) {
+        /* Decoding a frame blocks for up to ~68 ms; re-read the tick so the
+         * hold window is not shortened by the decode time itself. */
+        now = HAL_GetTick();
+
         if (addr == IR_ADDR_FORWARD && cmd < (uint8_t)IR_COLOR_NUM) {
             ir_apply_color(cmd);
+
+            /* Only red/green/blue are held: command 0 is "off now" and must
+             * not start (or extend) the timer. */
+            if (cmd != (uint8_t)IR_COLOR_OFF) {
+                s_hold_ms = now;
+            }
 #if IR_REVERSE_LINK
             s_last_frame_ms = now;
             s_reply_pending = true;
 #endif
         }
+    }
+
+    /* Any sign that the emitter is still transmitting keeps an active colour
+     * alive: a frame carrying our forward address (even when its command byte
+     * was damaged), or simply the demodulator seeing 38 kHz carrier - held at
+     * very short range the module is overloaded and no frame survives, but the
+     * carrier still proves the emitter is still there. True silence lets the
+     * hold expire as before. */
+    {
+        bool ours = ir_addr_seen(&addr) && addr == IR_ADDR_FORWARD;
+        bool carrier = ir_carrier_seen();
+
+#if IR_DIAG_IR_LED
+        if (carrier) {
+            s_diag_carrier_ms = HAL_GetTick();
+        }
+#endif
+        if ((ours || carrier) && s_color != (uint8_t)IR_COLOR_OFF) {
+            now = HAL_GetTick();
+            s_hold_ms = now;
+        }
+    }
+
+    /* Drop a colour nobody refreshed in time. Unsigned difference, so a
+     * HAL_GetTick() wrap is handled correctly; s_color guards the switch so
+     * the RGB is driven only on the one poll that actually times out. */
+    if (s_color != (uint8_t)IR_COLOR_OFF &&
+        (now - s_hold_ms) >= IR_HOLD_MS) {
+        ir_apply_color(IR_COLOR_OFF);
     }
 
     if (!s_bat_sampled || (now - s_last_bat_ms) >= BAT_SAMPLE_INTERVAL_MS) {
@@ -371,11 +450,16 @@ static void receiver_service(uint32_t now)
 
 static void receiver_status_led(uint32_t now)
 {
+#if IR_DIAG_IR_LED
+    /* carrier-activity probe instead of the battery indication */
+    gpio_status_led((now - s_diag_carrier_ms) < IR_DIAG_CARRIER_HOLD_MS);
+#else
     if (s_bat_sampled && s_bat_percent <= BAT_LOW_PERCENT) {
         gpio_status_led(((now / BAT_LOW_BLINK_MS) & 1U) != 0U);
     } else {
         gpio_status_led(true);
     }
+#endif
 }
 
 /* ------------------------------------------------------------------ */
@@ -404,6 +488,10 @@ void ir_app_init(void)
     s_last_refresh_ms = HAL_GetTick();
     s_last_upload_ms = HAL_GetTick();
     s_bat_sampled = false;
+    s_hold_ms = HAL_GetTick();
+#if IR_DIAG_IR_LED
+    s_diag_carrier_ms = HAL_GetTick();
+#endif
 #if IR_REVERSE_LINK
     s_listen_until_ms = 0U;
     s_reply_pending = false;
