@@ -6,7 +6,7 @@
 #include "queue.h"
 #include "timer.h"
 #include "senords.h"
-#if (BIG_MOTOR||SMALL_MOTOR)
+#if (BIG_MOTOR||SMALL_MOTOR||ELECTROMAGNETIC_SENSOR)
 #include "pwm.h"
 #else
 #if (COLOR)
@@ -33,7 +33,7 @@ static void IWDG_Feed(void)
 }
 int main(void)
 { 
-	FLASH->INT_VEC_OFFSET = FLASH_BASE | 0x2000; /* Vector Table Relocation in Internal FLASH. */	 
+	//FLASH->INT_VEC_OFFSET = FLASH_BASE | 0x2000; /* Vector Table Relocation in Internal FLASH. */	 
 	
 	rx_queue_init();
 	Timer_Init();
@@ -41,6 +41,8 @@ int main(void)
 	
 #if (BIG_MOTOR||SMALL_MOTOR)
 	encorder_init();
+	pwm_init();	 
+#elif ELECTROMAGNETIC_SENSOR
 	pwm_init();	 
 #else
 #if COLOR

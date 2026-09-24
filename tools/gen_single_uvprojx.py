@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Generate 6 SINGLE-TARGET Keil projects under Project/.
+Generate 7 SINGLE-TARGET Keil projects under Project/.
 
 Why single-target: UV4 (GUI Rebuild AND CLI -b) merges ALL targets' files into
 the active target for ANY multi-target project (verified with official Keil
@@ -17,7 +17,7 @@ IncludePath / Groups / fromelf --bin), so templates keep their meaning no
 matter which product they are used for.
 
 Products (template file -> project file):
-  HK32_BIG_MOTOR    (AC6) -> HK32_BIG_MOTOR.uvprojx / SMALL_MOTOR / COLOR
+  HK32_BIG_MOTOR    (AC6) -> HK32_BIG_MOTOR.uvprojx / SMALL_MOTOR / COLOR / ELECTROMAGNETIC_SENSOR
   STM32_GRAY_V1     (AC6, bootloader app @ 0x08003800) -> STM32_GRAY_V1.uvprojx
   STM32_NFC         (AC5, standalone @ 0x08000000)     -> STM32_NFC.uvprojx
   STM32_GRAY_V2     (AC6) -> STM32_GRAY_V2.uvprojx
@@ -300,12 +300,13 @@ def build_single(tpl, tname, outname, define, incpath, groups):
         print("WARNING: no <AfterMake>, fromelf not injected for", tname)
     return header + "<Targets>\n" + indent_block(t) + "\n  </Targets>\n\n\n" + footer
 
-# ---------- 6 products ----------
+# ---------- 7 products ----------
 PRODUCTS = [
     # (project file, template key, TargetName, OutputName, Define, IncludePath, Groups)
     ("HK32_BIG_MOTOR.uvprojx",    "HK32", "HK32_BIG_MOTOR",    "BIG_MOTOR",   "HK32F030M,HK32F030MF4P6,BIG_MOTOR=1",   HK32_INC, HK32_GROUPS),
     ("HK32_SMALL_MOTOR.uvprojx",  "HK32", "HK32_SMALL_MOTOR",  "SMALL_MOTOR", "HK32F030M,HK32F030MF4P6,SMALL_MOTOR=1", HK32_INC, HK32_GROUPS),
     ("HK32_COLOR.uvprojx",        "HK32", "HK32_COLOR",        "COLOR",       "HK32F030M,HK32F030MF4P6,COLOR=1",       HK32_INC, HK32_GROUPS),
+    ("HK32_ELECTROMAGNETIC_SENSOR.uvprojx", "HK32", "HK32_ELECTROMAGNETIC_SENSOR", "ELECTROMAGNETIC_SENSOR", "HK32F030M,HK32F030MF4P6,ELECTROMAGNETIC_SENSOR=1", HK32_INC, HK32_GROUPS),
     ("STM32_GRAY_V1.uvprojx",     "G0F6", "STM32_GRAY_V1",     "GRAY_V1",     "USE_HAL_DRIVER,STM32G030xx,GRAY_V1=1",   GRAYV1_INC, GRAYV1_GROUPS),
     ("STM32_NFC.uvprojx",         "NFC",  "STM32_NFC",         "NFC_G030F6",  "USE_HAL_DRIVER,STM32G030xx,NFC_G030F6=1", NFC_INC, NFC_GROUPS),
     ("STM32_GRAY_V2.uvprojx",     "G0K6", "STM32_GRAY_V2",     "GRAY_V2",     "USE_HAL_DRIVER,STM32G030xx,GRAY_V2=1",   GRAYV2_INC, GRAYV2_GROUPS),

@@ -7,6 +7,8 @@
 #include "timer.h"
 #if (BIG_MOTOR||SMALL_MOTOR||COLOR)
 #include "ltr381xx.h"
+#endif
+#if (BIG_MOTOR||SMALL_MOTOR||COLOR||ELECTROMAGNETIC_SENSOR)
 static DEV_SENORDS _dev;
 #endif
 
@@ -41,10 +43,13 @@ void pull_data_from_queue(void)
 							  delay_ms(5);
 							 
 							    SendCOMdata(USER_SourceID,"Play Aplication",strlen("Play Aplication"),0x09);
-                #if (BIG_MOTOR||SMALL_MOTOR)							 
+                #if (BIG_MOTOR||SMALL_MOTOR||ELECTROMAGNETIC_SENSOR)							 
 							    TIM2->CCR1 = 0;
 				          TIM2->CCR2 = 0; 					
                 #endif							 
+                #if ELECTROMAGNETIC_SENSOR
+							    _dev.state = 0;
+                #endif
 							    linkState = true;
 						 }						
 					   break;
@@ -60,6 +65,28 @@ void pull_data_from_queue(void)
 					{ 
 						 encoder_reset_position(0);
 						// SendCOMdata(USER_SourceID,"yes",strlen("yes"),0xDD);	
+					   break;
+					}
+					#endif
+					#if ELECTROMAGNETIC_SENSOR
+					case 0xD1:            /* pull in: PD3/CH1 = 100% duty, PD4/CH2 = 0 */
+					{ 
+						 if (rx_data->head[3] == 0 && rx_data->len >= 7)
+						 { 
+							 TIM2->CCR1 = TIM2->ARR ;    /* ARR = 99 -> CCR1 = 100 */
+						   TIM2->CCR2 = 0  ;
+						   _dev.state = 1;
+						 }
+					   break;
+					}
+					case 0xD2:            /* release: both channels off */
+					{ 
+						 if (rx_data->head[3] == 0 && rx_data->len >= 7)
+						 { 
+							 TIM2->CCR1 = 0;
+						   TIM2->CCR2 = 0;
+						   _dev.state = 0;
+						 }
 					   break;
 					}
 					#endif
@@ -97,6 +124,10 @@ void uploading_data(void)
     if (enctord_prr > 0) {
         angle = (int)((float)pos / (float)enctord_prr * 360.0f);
     }
+		#elif ELECTROMAGNETIC_SENSOR
+			electromagnetic_packet_t packet;
+			memset(&packet, 0, sizeof(packet));
+			packet.state = _dev.state;	/* command state only, no physical feedback */
 		#else
 			color_packet_t packet;
 			memset(&packet, 0, sizeof(packet));

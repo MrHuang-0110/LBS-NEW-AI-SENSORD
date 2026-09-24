@@ -1,6 +1,6 @@
 # LBS-NEW-AI-SENSORD
 
-统一固件仓库：小型传感器/执行器外设固件，通过 UART 与主机通信。**7 个产品、3 个芯片平台，每个产品一个独立的单 target Keil 工程。**
+统一固件仓库：小型传感器/执行器外设固件，通过 UART 与主机通信。**8 个产品、3 个芯片平台，每个产品一个独立的单 target Keil 工程。**
 
 ## 产品
 
@@ -9,6 +9,7 @@
 | `HK32_BIG_MOTOR.uvprojx` | HK32F030MF4P6 | `BIG_MOTOR=1` | 0xA1 | 大电机（TIM 编码器） |
 | `HK32_SMALL_MOTOR.uvprojx` | HK32F030MF4P6 | `SMALL_MOTOR=1` | 0xA6 | 中电机（TIM 编码器） |
 | `HK32_COLOR.uvprojx` | HK32F030MF4P6 | `COLOR=1` | 0xA2 | 颜色传感器 LTR-381RGB |
+| `HK32_ELECTROMAGNETIC_SENSOR.uvprojx` | HK32F030MF4P6 | `ELECTROMAGNETIC_SENSOR=1` | 0xE0 | 电磁传感器（TIM2 PWM 吸合） |
 | `STM32_GRAY_V1.uvprojx` | STM32G030F6P6 | `GRAY_V1=1` | 0xA9 | 灰度传感器 V1（4 路 ADC） |
 | `STM32_GRAY_V2.uvprojx` | STM32G030K6T6 | `GRAY_V2=1` | 0xB0 | 灰度传感器 V2（7 路 ADC） |
 | `STM32_NFC.uvprojx` | STM32G030F6P6 | `NFC_G030F6=1` | 0xB2 | 射频读卡 RC522（SPI） |
@@ -27,14 +28,14 @@
   - G0（GRAY_V2）：APP 基址 `0x08003800`，版本槽 `0x08007900`（Flash）
   - PY32（IR_REMOTE）：**无 bootloader**，直接从 `0x08000000` 运行（24 KB Flash / 3 KB RAM）
 
-## 为什么是 7 个独立工程？
+## 为什么是 8 个独立工程？
 
-Keil µVision（V6.24，官方工程验证）对**任何多 target 工程**都会把所有 target 的文件合并进当前激活的 target（GUI Rebuild 与 CLI `-b` 均如此）。多 target `.uvprojx` 在 UV4 中不可用，因此本仓库按 `E:\LBS-NEW-AI-SENSORD-BOOT\Boot_All` 的方式拆分为 7 个单 target 工程。**请勿再创建多 target 工程。**
+Keil µVision（V6.24，官方工程验证）对**任何多 target 工程**都会把所有 target 的文件合并进当前激活的 target（GUI Rebuild 与 CLI `-b` 均如此）。多 target `.uvprojx` 在 UV4 中不可用，因此本仓库按 `E:\LBS-NEW-AI-SENSORD-BOOT\Boot_All` 的方式拆分为 8 个单 target 工程。**请勿再创建多 target 工程。**
 
 ## 目录结构
 
 ```
-Project/   7 个单 target Keil 工程（含 PY32_IR_REMOTE.uvprojx）；senords.h/c（产品宏、ObjectID、协议包结构）
+Project/   8 个单 target Keil 工程（含 PY32_IR_REMOTE.uvprojx）；senords.h/c（产品宏、ObjectID、协议包结构）
 Source/    HK32F030M 平台（vendor std-periph lib；Libraries/ 为上游代码，勿改）
 G0/        STM32G030 平台（STM32 HAL；HAL/ 为上游代码，勿改）
   App/gray_v1, App/gray_v2, App/nfc   各产品独立源码（按 target 文件组隔离）
@@ -53,7 +54,24 @@ Doc/       Readme.txt
 - `0x09 "Please Link"` 握手 → 回复 `"Play Aplication"`，握手完成后才上传数据
 - `0xED` 数据上传（电机 PWM 控制）；`0xDD` 编码器清零；`0xEE` 重启
 - `0xD1` 设置 LED 颜色（GRAY_V2 校准灯 / IR_REMOTE 切换接收端颜色，payload 1 字节）
+- `0xD1` / `0xD2`（HK32 电磁传感器）：吸合 / 断开，payload 必须为空；当前状态用 `0xED` 上传 1 字节（0=断开 1=吸合）
 - 完整命令集与各产品外设映射见 [CLAUDE.md](CLAUDE.md)
+
+## 电磁传感器（ELECTROMAGNETIC_SENSOR，ObjectID 0xE0）
+
+复用中电机的 PWM 控制引脚驱动吸合线圈，**不启用编码器**（PD1/PD2 不配置）。
+
+| 引脚 | 功能 |
+| --- | --- |
+| PD3 | TIM2_CH1 吸合输出（吸合时 100% 占空比，否则 0） |
+| PD4 | TIM2_CH2 备用输出，恒为 0 |
+
+- 上电、握手（`0x09 "Please Link"`）与复位后均为**断开**（CH1/CH2 = 0）。
+- `0xD1`：吸合（CH1 = 100% 占空比，状态 1）；`0xD2`：断开（两路 = 0，状态 0）。两条命令 **payload 必须为空**，带载荷或截断的帧不改变输出。
+- **无失联超时**：`0xD1` 后持续保持吸合，直到 `0xD2`、重新握手或复位。
+- `0xED` 只上传已下发的命令状态（1 字节），不代表物理吸合反馈。
+
+完整协议（帧格式、设备校验范围、示例帧、常见坑、主机接入清单）见 [Doc/ELECTROMAGNETIC_SENSOR_protocol.md](Doc/ELECTROMAGNETIC_SENSOR_protocol.md)。
 
 ## 红外发射/接收（IR_REMOTE，ObjectID 0xA3）
 
@@ -76,7 +94,7 @@ Doc/       Readme.txt
 
 ## 工程重生成与体检
 
-改动文件结构后重生成工程（模板为已生成的 7 个工程自身，只重写 TargetName/Output/Define/IncludePath/Groups/fromelf，编译器与调试配置保持不变）：
+改动文件结构后重生成工程（模板为已生成的 8 个工程自身，只重写 TargetName/Output/Define/IncludePath/Groups/fromelf，编译器与调试配置保持不变）：
 
 ```
 python tools/gen_single_uvprojx.py

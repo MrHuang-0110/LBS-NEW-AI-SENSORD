@@ -10,6 +10,7 @@
  *    BIG_MOTOR   -> 大电机     USER_ObjectID = 0xA1
  *    SMALL_MOTOR -> 中电机     USER_ObjectID = 0xA6
  *    COLOR       -> 颜色传感器 USER_ObjectID = 0xA2
+ *    ELECTROMAGNETIC_SENSOR -> 电磁传感器 USER_ObjectID = 0xE0
  *
  *  STM32G030 平台 (Target: STM32G030F6P6 / STM32G030K6T6)
  *    GRAY_V1     -> 灰度传感器V1 (G030F6P6) USER_ObjectID = 0xA9
@@ -29,6 +30,9 @@
 #ifndef COLOR
 #define COLOR 0
 #endif
+#ifndef ELECTROMAGNETIC_SENSOR
+#define ELECTROMAGNETIC_SENSOR 0
+#endif
 #ifndef GRAY_V1
 #define GRAY_V1 0
 #endif
@@ -43,8 +47,8 @@
 #define IR_REMOTE 0
 #endif
 
-#if (BIG_MOTOR + SMALL_MOTOR + COLOR + GRAY_V1 + GRAY_V2 + NFC_G030F6 + IR_REMOTE) != 1
-#error "senords.h: exactly one product macro (BIG_MOTOR/SMALL_MOTOR/COLOR/GRAY_V1/GRAY_V2/NFC_G030F6/IR_REMOTE) must be 1"
+#if (BIG_MOTOR + SMALL_MOTOR + COLOR + ELECTROMAGNETIC_SENSOR + GRAY_V1 + GRAY_V2 + NFC_G030F6 + IR_REMOTE) != 1
+#error "senords.h: exactly one product macro (BIG_MOTOR/SMALL_MOTOR/COLOR/ELECTROMAGNETIC_SENSOR/GRAY_V1/GRAY_V2/NFC_G030F6/IR_REMOTE) must be 1"
 #endif
 
 #define USER_SourceID 0x97
@@ -55,6 +59,8 @@
 #define USER_ObjectID 0xA6
 #elif COLOR
 #define USER_ObjectID 0xA2
+#elif ELECTROMAGNETIC_SENSOR
+#define USER_ObjectID 0xE0
 #elif GRAY_V1
 #define USER_ObjectID 0xA9
 #elif GRAY_V2
@@ -65,8 +71,8 @@
 #define USER_ObjectID 0xA3
 #endif
 
-/* ============ HK32F030M 平台数据结构（BIG_MOTOR/SMALL_MOTOR/COLOR） ============ */
-#if (BIG_MOTOR||SMALL_MOTOR||COLOR)
+/* ============ HK32F030M 平台数据结构（BIG_MOTOR/SMALL_MOTOR/COLOR/ELECTROMAGNETIC_SENSOR） ============ */
+#if (BIG_MOTOR||SMALL_MOTOR||COLOR||ELECTROMAGNETIC_SENSOR)
 
 #if (BIG_MOTOR||SMALL_MOTOR)
 typedef struct
@@ -78,7 +84,7 @@ typedef struct
 typedef struct __attribute__((packed)) {
 	  int speed,pos,angle,version;
 }motor_packet_t;
-#else
+#elif COLOR
 typedef struct
 { 
    unsigned short r,g,b;   // 红色通道原始值
@@ -91,6 +97,17 @@ typedef struct __attribute__((packed)) {
 	  float lux;
 	  unsigned short ReadRaw,GreenRaw,BlueRaw;
 }color_packet_t;
+
+#else
+/* ELECTROMAGNETIC_SENSOR：只上报已下发的吸合/断开命令状态，无物理反馈 */
+typedef struct
+{ 
+   unsigned char state;   // 0 = 断开，1 = 吸合
+}DEV_SENORDS;
+
+typedef struct __attribute__((packed)) {
+	  unsigned char state;	/* 0 = 断开（CH1/CH2 均为 0），1 = 吸合（CH1 = 100% 占空比） */
+}electromagnetic_packet_t;
 
 #endif
 

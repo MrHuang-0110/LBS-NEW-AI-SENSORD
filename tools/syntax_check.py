@@ -78,7 +78,7 @@ HK_FILES = [r"Source\User\main.c", r"Source\User\hk32f030m_it.c", r"Project\seno
             r"Source\Handware\USART\usart.c", r"Source\Handware\TIMER\timer.c",
             r"Source\Handware\PWM\pwm.c", r"Source\Handware\SysTick\systick_delay.c",
             r"Source\Handware\ltr381xx\ltr381xx.c", r"Source\Handware\IIC\bsp_i2c.c"]
-for macro in ["BIG_MOTOR", "SMALL_MOTOR", "COLOR"]:
+for macro in ["BIG_MOTOR", "SMALL_MOTOR", "COLOR", "ELECTROMAGNETIC_SENSOR"]:
     total += check(HK_FILES, macro, HK_INC, "HK32-" + macro)
 
 PY32_FILES = [rel("PY32", "App", "ir_remote", n) for n in
